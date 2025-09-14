@@ -26,3 +26,20 @@ export const sender = {
   email: ENV.EMAIL_FROM,
   name: ENV.EMAIL_FROM_NAME,
 };
+
+// Test email connection on startup
+export const verifyEmailConnection = async () => {
+  try {
+    await transporter.verify();
+    console.log("✅ Email server connection verified successfully");
+    return true;
+  } catch (error) {
+    console.error("❌ Email server connection failed:");
+    console.error("Error details:", {
+      message: error.message,
+      code: error.code,
+      command: error.command
+    });
+    return false;
+  }
+};

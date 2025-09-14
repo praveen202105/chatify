@@ -8,6 +8,7 @@ import messageRoutes from "./routes/message.route.js";
 import { connectDB } from "./lib/db.js";
 import { ENV } from "./lib/env.js";
 import { app, server } from "./lib/socket.js";
+import { verifyEmailConnection } from "./lib/resend.js";
 
 const __dirname = path.resolve();
 
@@ -29,7 +30,8 @@ if (ENV.NODE_ENV === "production") {
   });
 }
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log("Server running on port: " + PORT);
-  connectDB();
+  await connectDB();
+  await verifyEmailConnection();
 });
