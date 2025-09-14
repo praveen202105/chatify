@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useChatStore } from "../store/useChatStore";
 
 import BorderAnimatedContainer from "../components/BorderAnimatedContainer";
@@ -9,7 +10,26 @@ import ChatContainer from "../components/ChatContainer";
 import NoConversationPlaceholder from "../components/NoConversationPlaceholder";
 
 function ChatPage() {
-  const { activeTab, selectedUser } = useChatStore();
+  const {
+    activeTab,
+    selectedUser,
+    subscribeToTypingEvents,
+    unsubscribeFromTypingEvents,
+    subscribeToMessageUpdates,
+    unsubscribeFromMessageUpdates
+  } = useChatStore();
+
+  useEffect(() => {
+    // Subscribe to typing events and message updates when chat page loads
+    subscribeToTypingEvents();
+    subscribeToMessageUpdates();
+
+    // Cleanup when component unmounts
+    return () => {
+      unsubscribeFromTypingEvents();
+      unsubscribeFromMessageUpdates();
+    };
+  }, [subscribeToTypingEvents, unsubscribeFromTypingEvents, subscribeToMessageUpdates, unsubscribeFromMessageUpdates]);
 
   return (
     <div className="relative w-full max-w-6xl h-[800px]">

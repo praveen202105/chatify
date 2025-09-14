@@ -1,22 +1,37 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import useKeyboardSound from "../hooks/useKeyboardSound";
 import { useChatStore } from "../store/useChatStore";
+import { useAuthStore } from "../store/useAuthStore";
 import toast from "react-hot-toast";
-import { ImageIcon, SendIcon, XIcon } from "lucide-react";
+import { ImageIcon, SendIcon, XIcon, Mic, Square } from "lucide-react";
 
 function MessageInput() {
   const { playRandomKeyStrokeSound } = useKeyboardSound();
   const [text, setText] = useState("");
   const [imagePreview, setImagePreview] = useState(null);
+  const [isTyping, setIsTyping] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
 
   const fileInputRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const recordingTimerRef = useRef(null);
 
-  const { sendMessage, isSoundEnabled } = useChatStore();
+  const { sendMessage, isSoundEnabled, selectedUser } = useChatStore();
+  const { socket } = useAuthStore();
 
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!text.trim() && !imagePreview) return;
     if (isSoundEnabled) playRandomKeyStrokeSound();
+
+    // Stop typing indicator when sending message
+    if (isTyping) {
+      socket?.emit("stopTyping", { receiverId: selectedUser?._id });
+      setIsTyping(false);
+    }
 
     sendMessage({
       text: text.trim(),
@@ -44,6 +59,98 @@ function MessageInput() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const handleTyping = () => {
+    if (!selectedUser || !socket) {
+      console.log("Typing not triggered:", { selectedUser: !!selectedUser, socket: !!socket });
+      return;
+    }
+
+    console.log("User is typing to:", selectedUser.fullName, selectedUser._id);
+
+    if (!isTyping) {
+      setIsTyping(true);
+      socket.emit("typing", { receiverId: selectedUser._id });
+      console.log("Emitted typing event to:", selectedUser._id);
+    }
+
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Set new timeout to stop typing after 2 seconds of inactivity
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+      socket.emit("stopTyping", { receiverId: selectedUser._id });
+      console.log("Emitted stopTyping event to:", selectedUser._id);
+    }, 2000);
+  };
+
+  // Voice recording functions
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        sendVoiceMessage(audioBlob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } catch (error) {
+      toast.error("Could not access microphone");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+      }
+    }
+  };
+
+  const sendVoiceMessage = async (audioBlob) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64Audio = reader.result;
+      sendMessage({
+        voice: base64Audio,
+        voiceDuration: recordingTime,
+      });
+      setRecordingTime(0);
+    };
+    reader.readAsDataURL(audioBlob);
+  };
+
+  // Cleanup timeout on unmount or user change
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+      }
+    };
+  }, [selectedUser]);
+
   return (
     <div className="p-4 border-t border-slate-700/50">
       {imagePreview && (
@@ -65,6 +172,16 @@ function MessageInput() {
         </div>
       )}
 
+      {/* Recording Indicator */}
+      {isRecording && (
+        <div className="max-w-3xl mx-auto mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg flex items-center justify-center gap-2">
+          <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+          <span className="text-red-400 font-medium">
+            Recording... {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
+          </span>
+        </div>
+      )}
+
       <form onSubmit={handleSendMessage} className="max-w-3xl mx-auto flex space-x-4">
         <input
           type="text"
@@ -72,9 +189,11 @@ function MessageInput() {
           onChange={(e) => {
             setText(e.target.value);
             isSoundEnabled && playRandomKeyStrokeSound();
+            handleTyping();
           }}
           className="flex-1 bg-slate-800/50 border border-slate-700/50 rounded-lg py-2 px-4"
           placeholder="Type your message..."
+          disabled={isRecording}
         />
 
         <input
@@ -91,12 +210,30 @@ function MessageInput() {
           className={`bg-slate-800/50 text-slate-400 hover:text-slate-200 rounded-lg px-4 transition-colors ${
             imagePreview ? "text-cyan-500" : ""
           }`}
+          disabled={isRecording}
         >
           <ImageIcon className="w-5 h-5" />
         </button>
+
+        {/* Voice Message Button */}
+        <button
+          type="button"
+          onMouseDown={startRecording}
+          onMouseUp={stopRecording}
+          onMouseLeave={stopRecording}
+          className={`rounded-lg px-4 py-2 transition-colors ${
+            isRecording
+              ? "bg-red-500 text-white"
+              : "bg-slate-800/50 text-slate-400 hover:text-slate-200"
+          }`}
+          disabled={text.trim() || imagePreview}
+        >
+          {isRecording ? <Square className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+        </button>
+
         <button
           type="submit"
-          disabled={!text.trim() && !imagePreview}
+          disabled={(!text.trim() && !imagePreview) || isRecording}
           className="bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg px-4 py-2 font-medium hover:from-cyan-600 hover:to-cyan-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <SendIcon className="w-5 h-5" />

@@ -1,10 +1,15 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
 import ChatHeader from "./ChatHeader";
 import NoChatHistoryPlaceholder from "./NoChatHistoryPlaceholder";
 import MessageInput from "./MessageInput";
 import MessagesLoadingSkeleton from "./MessagesLoadingSkeleton";
+import TypingIndicator from "./TypingIndicator";
+import MessageReactions, { QuickReactionPicker } from "./MessageReactions";
+import MessageActions from "./MessageActions";
+import ReplyPreview from "./ReplyPreview";
+import VoiceMessagePlayer from "./VoiceMessagePlayer";
 
 function ChatContainer() {
   const {
@@ -14,9 +19,40 @@ function ChatContainer() {
     isMessagesLoading,
     subscribeToMessages,
     unsubscribeFromMessages,
+    replyToMessage,
+    setReplyToMessage,
+    editingMessage,
+    setEditingMessage,
+    editMessage,
+    addMessageReaction,
   } = useChatStore();
   const { authUser } = useAuthStore();
   const messageEndRef = useRef(null);
+  const [editText, setEditText] = useState("");
+
+  const handleReply = (message) => {
+    setReplyToMessage({
+      ...message,
+      senderName: message.senderId === authUser._id ? "You" : selectedUser.fullName
+    });
+  };
+
+  const handleEdit = (message) => {
+    setEditingMessage(message);
+    setEditText(message.text);
+  };
+
+  const handleSaveEdit = () => {
+    if (editText.trim() && editingMessage) {
+      editMessage(editingMessage._id, editText.trim());
+      setEditText("");
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessage(null);
+    setEditText("");
+  };
 
   useEffect(() => {
     getMessagesByUserId(selectedUser._id);
@@ -38,31 +74,98 @@ function ChatContainer() {
       <div className="flex-1 px-6 overflow-y-auto py-8">
         {messages.length > 0 && !isMessagesLoading ? (
           <div className="max-w-3xl mx-auto space-y-6">
-            {messages.map((msg) => (
-              <div
-                key={msg._id}
-                className={`chat ${msg.senderId === authUser._id ? "chat-end" : "chat-start"}`}
-              >
+            {messages.map((msg) => {
+              const isMyMessage = msg.senderId === authUser._id;
+
+              return (
                 <div
-                  className={`chat-bubble relative ${
-                    msg.senderId === authUser._id
-                      ? "bg-cyan-600 text-white"
-                      : "bg-slate-800 text-slate-200"
-                  }`}
+                  key={msg._id}
+                  className={`chat group ${isMyMessage ? "chat-end" : "chat-start"}`}
                 >
-                  {msg.image && (
-                    <img src={msg.image} alt="Shared" className="rounded-lg h-48 object-cover" />
-                  )}
-                  {msg.text && <p className="mt-2">{msg.text}</p>}
-                  <p className="text-xs mt-1 opacity-75 flex items-center gap-1">
-                    {new Date(msg.createdAt).toLocaleTimeString(undefined, {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </p>
+                  <div className="flex items-start gap-2 relative">
+                    <div
+                      className={`chat-bubble relative ${
+                        isMyMessage
+                          ? "bg-cyan-600 text-white"
+                          : "bg-slate-800 text-slate-200"
+                      } ${msg.isDeleted ? "opacity-60 italic" : ""}`}
+                    >
+                      {/* Reply reference */}
+                      {msg.replyTo && (
+                        <div className="border-l-2 border-slate-500 pl-2 mb-2 text-xs opacity-70">
+                          <p className="font-medium">Replying to message</p>
+                        </div>
+                      )}
+
+                      {/* Message content */}
+                      {msg.image && !msg.isDeleted && (
+                        <img src={msg.image} alt="Shared" className="rounded-lg h-48 object-cover" />
+                      )}
+
+                      {/* Voice message */}
+                      {msg.voice && !msg.isDeleted && (
+                        <VoiceMessagePlayer
+                          voiceUrl={msg.voice}
+                          duration={msg.voiceDuration}
+                          isMyMessage={isMyMessage}
+                        />
+                      )}
+
+                      {editingMessage?._id === msg._id ? (
+                        <div className="mt-2">
+                          <input
+                            type="text"
+                            value={editText}
+                            onChange={(e) => setEditText(e.target.value)}
+                            className="w-full bg-slate-700 text-white px-2 py-1 rounded"
+                            onKeyPress={(e) => {
+                              if (e.key === "Enter") handleSaveEdit();
+                              if (e.key === "Escape") handleCancelEdit();
+                            }}
+                            autoFocus
+                          />
+                          <div className="flex gap-2 mt-2">
+                            <button onClick={handleSaveEdit} className="text-xs bg-green-600 px-2 py-1 rounded">
+                              Save
+                            </button>
+                            <button onClick={handleCancelEdit} className="text-xs bg-gray-600 px-2 py-1 rounded">
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        msg.text && <p className="mt-2">{msg.text}</p>
+                      )}
+
+                      {/* Reactions */}
+                      <MessageReactions message={msg} isMyMessage={isMyMessage} />
+
+                      <p className="text-xs mt-1 opacity-75 flex items-center gap-1">
+                        {new Date(msg.createdAt).toLocaleTimeString(undefined, {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        {msg.isEdited && <span className="italic">(edited)</span>}
+                      </p>
+                    </div>
+
+                    {/* Quick Reaction Picker (appears on hover) */}
+                    <QuickReactionPicker
+                      message={msg}
+                      isMyMessage={isMyMessage}
+                      onReactionClick={(reactionType) => addMessageReaction(msg._id, reactionType)}
+                    />
+
+                    {/* Message Actions */}
+                    <MessageActions
+                      message={msg}
+                      onReply={handleReply}
+                      onEdit={handleEdit}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {/* 👇 scroll target */}
             <div ref={messageEndRef} />
           </div>
@@ -73,6 +176,11 @@ function ChatContainer() {
         )}
       </div>
 
+      <ReplyPreview
+        replyToMessage={replyToMessage}
+        onCancelReply={() => setReplyToMessage(null)}
+      />
+      <TypingIndicator />
       <MessageInput />
     </>
   );

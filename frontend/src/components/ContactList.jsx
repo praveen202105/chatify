@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useChatStore } from "../store/useChatStore";
 import UsersLoadingSkeleton from "./UsersLoadingSkeleton";
 import { useAuthStore } from "../store/useAuthStore";
+import LastSeen from "./LastSeen";
 
 function ContactList() {
   const { getAllContacts, allContacts, setSelectedUser, isUsersLoading } = useChatStore();
@@ -27,7 +28,14 @@ function ContactList() {
                 <img src={contact.profilePic || "/avatar.png"} />
               </div>
             </div>
-            <h4 className="text-slate-200 font-medium">{contact.fullName}</h4>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-slate-200 font-medium truncate">{contact.fullName}</h4>
+              <LastSeen
+                lastSeen={contact.lastSeen}
+                isOnline={onlineUsers.includes(contact._id)}
+                className="mt-1"
+              />
+            </div>
           </div>
         </div>
       ))}
