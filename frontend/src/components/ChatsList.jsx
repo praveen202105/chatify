@@ -25,17 +25,26 @@ function ChatsList() {
         return (
           <div
             key={chat._id}
-            className="bg-cyan-500/10 p-4 rounded-lg cursor-pointer hover:bg-cyan-500/20 transition-colors"
+            className="bg-cyan-500/10 p-3 sm:p-4 rounded-lg cursor-pointer hover:bg-cyan-500/20 active:bg-cyan-500/30 transition-colors touch-manipulation"
             onClick={() => setSelectedUser(chat)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setSelectedUser(chat);
+              }
+            }}
+            aria-label={`Chat with ${chat.fullName}`}
           >
             <div className="flex items-center gap-3">
               <div className={`avatar ${onlineUsers.includes(chat._id) ? "online" : "offline"}`}>
-                <div className="size-12 rounded-full">
+                <div className="size-10 sm:size-12 rounded-full">
                   <img src={chat.profilePic || "/avatar.png"} alt={chat.fullName} />
                 </div>
               </div>
               <div className="flex-1 min-w-0">
-                <h4 className="text-slate-200 font-medium truncate">{chat.fullName}</h4>
+                <h4 className="text-slate-200 font-medium text-sm sm:text-base truncate">{chat.fullName}</h4>
                 {isUserTyping ? (
                   <div className="flex items-center gap-1 mt-1">
                     <div className="flex space-x-1">
@@ -49,7 +58,7 @@ function ChatsList() {
                   <LastSeen
                     lastSeen={chat.lastSeen}
                     isOnline={onlineUsers.includes(chat._id)}
-                    className="mt-1"
+                    className="mt-1 text-xs"
                   />
                 )}
               </div>

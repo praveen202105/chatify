@@ -152,14 +152,14 @@ function MessageInput() {
   }, [selectedUser]);
 
   return (
-    <div className="p-4 border-t border-slate-700/50">
+    <div className="p-3 sm:p-4 border-t border-slate-700/50">
       {imagePreview && (
-        <div className="max-w-3xl mx-auto mb-3 flex items-center">
+        <div className="w-full mx-auto mb-3 flex items-center">
           <div className="relative">
             <img
               src={imagePreview}
               alt="Preview"
-              className="w-20 h-20 object-cover rounded-lg border border-slate-700"
+              className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg border border-slate-700"
             />
             <button
               onClick={removeImage}
@@ -174,15 +174,15 @@ function MessageInput() {
 
       {/* Recording Indicator */}
       {isRecording && (
-        <div className="max-w-3xl mx-auto mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg flex items-center justify-center gap-2">
+        <div className="w-full mx-auto mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg flex items-center justify-center gap-2">
           <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-          <span className="text-red-400 font-medium">
+          <span className="text-red-400 font-medium text-sm sm:text-base">
             Recording... {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
           </span>
         </div>
       )}
 
-      <form onSubmit={handleSendMessage} className="max-w-3xl mx-auto flex space-x-4">
+      <form onSubmit={handleSendMessage} className="w-full mx-auto flex gap-2 sm:gap-4">
         <input
           type="text"
           value={text}
@@ -191,7 +191,7 @@ function MessageInput() {
             isSoundEnabled && playRandomKeyStrokeSound();
             handleTyping();
           }}
-          className="flex-1 bg-slate-800/50 border border-slate-700/50 rounded-lg py-2 px-4"
+          className="flex-1 bg-slate-800/50 border border-slate-700/50 rounded-lg py-2 px-3 sm:px-4 text-sm sm:text-base min-w-0"
           placeholder="Type your message..."
           disabled={isRecording}
         />
@@ -207,7 +207,7 @@ function MessageInput() {
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className={`bg-slate-800/50 text-slate-400 hover:text-slate-200 rounded-lg px-4 transition-colors ${
+          className={`bg-slate-800/50 text-slate-400 hover:text-slate-200 rounded-lg p-2 sm:px-4 sm:py-2 transition-colors ${
             imagePreview ? "text-cyan-500" : ""
           }`}
           disabled={isRecording}
@@ -221,7 +221,9 @@ function MessageInput() {
           onMouseDown={startRecording}
           onMouseUp={stopRecording}
           onMouseLeave={stopRecording}
-          className={`rounded-lg px-4 py-2 transition-colors ${
+          onTouchStart={startRecording}
+          onTouchEnd={stopRecording}
+          className={`rounded-lg p-2 sm:px-4 sm:py-2 transition-colors touch-none ${
             isRecording
               ? "bg-red-500 text-white"
               : "bg-slate-800/50 text-slate-400 hover:text-slate-200"
@@ -234,7 +236,7 @@ function MessageInput() {
         <button
           type="submit"
           disabled={(!text.trim() && !imagePreview) || isRecording}
-          className="bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg px-4 py-2 font-medium hover:from-cyan-600 hover:to-cyan-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg p-2 sm:px-4 sm:py-2 font-medium hover:from-cyan-600 hover:to-cyan-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <SendIcon className="w-5 h-5" />
         </button>
