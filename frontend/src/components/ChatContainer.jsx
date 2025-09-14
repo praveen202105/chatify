@@ -10,6 +10,7 @@ import MessageReactions, { QuickReactionPicker } from "./MessageReactions";
 import MessageActions from "./MessageActions";
 import ReplyPreview from "./ReplyPreview";
 import VoiceMessagePlayer from "./VoiceMessagePlayer";
+import MessageStatus from "./MessageStatus";
 
 function ChatContainer() {
   const {
@@ -140,13 +141,16 @@ function ChatContainer() {
                       {/* Reactions */}
                       <MessageReactions message={msg} isMyMessage={isMyMessage} />
 
-                      <p className="text-xs mt-1 opacity-75 flex items-center gap-1">
-                        {new Date(msg.createdAt).toLocaleTimeString(undefined, {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                        {msg.isEdited && <span className="italic">(edited)</span>}
-                      </p>
+                      <div className="text-xs mt-1 opacity-75 flex items-center justify-between">
+                        <div className="flex items-center gap-1">
+                          {new Date(msg.createdAt).toLocaleTimeString(undefined, {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                          {msg.isEdited && <span className="italic">(edited)</span>}
+                        </div>
+                        <MessageStatus message={msg} isMyMessage={isMyMessage} />
+                      </div>
                     </div>
 
                     {/* Quick Reaction Picker (appears on hover) */}

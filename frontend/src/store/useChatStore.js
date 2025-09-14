@@ -73,10 +73,24 @@ export const useChatStore = create((set, get) => ({
     try {
       const res = await axiosInstance.get(`/messages/${userId}`);
       set({ messages: res.data });
+
+      // Mark all messages from this sender as read
+      const socket = useAuthStore.getState().socket;
+      if (socket) {
+        socket.emit("markMessagesRead", { senderId: userId });
+      }
     } catch (error) {
       toast.error(error.response?.data?.message || "Something went wrong");
     } finally {
       set({ isMessagesLoading: false });
+    }
+  },
+
+  // Mark individual message as read
+  markMessageAsRead: (messageId) => {
+    const socket = useAuthStore.getState().socket;
+    if (socket) {
+      socket.emit("messageRead", { messageId });
     }
   },
 
@@ -193,6 +207,9 @@ export const useChatStore = create((set, get) => ({
       const currentMessages = get().messages;
       set({ messages: [...currentMessages, newMessage] });
 
+      // Emit delivery confirmation for the received message
+      socket.emit("messageDelivered", { messageId: newMessage._id });
+
       if (isSoundEnabled) {
         const notificationSound = new Audio("/sounds/notification.mp3");
 
@@ -280,6 +297,25 @@ export const useChatStore = create((set, get) => ({
       );
       set({ messages: updatedMessages });
     });
+
+    // Handle message status updates (delivery and read receipts)
+    socket.on("messageStatusUpdate", (data) => {
+      const { messageId, deliveredAt, readAt } = data;
+      const { messages } = get();
+      console.log(`Message status update for ${messageId}:`, { deliveredAt, readAt });
+
+      const updatedMessages = messages.map(msg => {
+        if (msg._id === messageId) {
+          return {
+            ...msg,
+            deliveredAt: deliveredAt || msg.deliveredAt,
+            readAt: readAt || msg.readAt
+          };
+        }
+        return msg;
+      });
+      set({ messages: updatedMessages });
+    });
   },
 
   unsubscribeFromMessages: () => {
@@ -298,5 +334,6 @@ export const useChatStore = create((set, get) => ({
     socket.off("messageReaction");
     socket.off("messageEdited");
     socket.off("messageDeleted");
+    socket.off("messageStatusUpdate");
   },
 }));

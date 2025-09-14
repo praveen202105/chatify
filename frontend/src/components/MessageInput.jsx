@@ -3,7 +3,7 @@ import useKeyboardSound from "../hooks/useKeyboardSound";
 import { useChatStore } from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
 import toast from "react-hot-toast";
-import { ImageIcon, SendIcon, XIcon, Mic, Square } from "lucide-react";
+import { ImageIcon, SendIcon, XIcon, Mic, Square, Trash2 } from "lucide-react";
 
 function MessageInput() {
   const { playRandomKeyStrokeSound } = useKeyboardSound();
@@ -12,12 +12,16 @@ function MessageInput() {
   const [isTyping, setIsTyping] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [recordingAmplitude, setRecordingAmplitude] = useState([]);
 
   const fileInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const recordingTimerRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const analyserRef = useRef(null);
+  const animationFrameRef = useRef(null);
 
   const { sendMessage, isSoundEnabled, selectedUser } = useChatStore();
   const { socket } = useAuthStore();
@@ -86,10 +90,39 @@ function MessageInput() {
     }, 2000);
   };
 
+  // Audio visualization
+  const analyzeAudio = () => {
+    if (!analyserRef.current) return;
+
+    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+    analyserRef.current.getByteFrequencyData(dataArray);
+
+    // Get average amplitude
+    const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
+    const normalizedAmplitude = (average / 255) * 50; // Scale to 0-50px height
+
+    setRecordingAmplitude(prev => {
+      const newAmplitude = [...prev, normalizedAmplitude];
+      return newAmplitude.slice(-40); // Keep only last 40 bars
+    });
+
+    if (isRecording) {
+      animationFrameRef.current = requestAnimationFrame(analyzeAudio);
+    }
+  };
+
   // Voice recording functions
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // Set up audio context for visualization
+      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      source.connect(analyserRef.current);
+      analyserRef.current.fftSize = 256;
+
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
@@ -102,11 +135,18 @@ function MessageInput() {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         sendVoiceMessage(audioBlob);
         stream.getTracks().forEach(track => track.stop());
+        if (audioContextRef.current) {
+          audioContextRef.current.close();
+        }
       };
 
       mediaRecorder.start();
       setIsRecording(true);
       setRecordingTime(0);
+      setRecordingAmplitude([]);
+
+      // Start audio analysis
+      analyzeAudio();
 
       recordingTimerRef.current = setInterval(() => {
         setRecordingTime(prev => prev + 1);
@@ -122,6 +162,27 @@ function MessageInput() {
       setIsRecording(false);
       if (recordingTimerRef.current) {
         clearInterval(recordingTimerRef.current);
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    }
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      setIsRecording(false);
+      setRecordingTime(0);
+      setRecordingAmplitude([]);
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
       }
     }
   };
@@ -148,6 +209,9 @@ function MessageInput() {
       if (recordingTimerRef.current) {
         clearInterval(recordingTimerRef.current);
       }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
     };
   }, [selectedUser]);
 
@@ -172,13 +236,59 @@ function MessageInput() {
         </div>
       )}
 
-      {/* Recording Indicator */}
+      {/* Recording Interface */}
       {isRecording && (
-        <div className="w-full mx-auto mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg flex items-center justify-center gap-2">
-          <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-          <span className="text-red-400 font-medium text-sm sm:text-base">
-            Recording... {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
-          </span>
+        <div className="w-full mx-auto mb-4 p-4 bg-slate-800/80 backdrop-blur-sm rounded-xl border border-slate-700/50">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center animate-pulse">
+                  <Mic className="w-5 h-5 text-white" />
+                </div>
+                <div className="absolute inset-0 bg-red-500/30 rounded-full animate-ping"></div>
+              </div>
+              <div>
+                <p className="text-red-400 font-medium text-sm">Recording Voice Message</p>
+                <p className="text-slate-400 text-xs">
+                  {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={cancelRecording}
+              className="p-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-colors"
+              aria-label="Cancel recording"
+            >
+              <Trash2 className="w-4 h-4 text-red-400" />
+            </button>
+          </div>
+
+          {/* Live Waveform */}
+          <div className="flex items-center justify-center gap-0.5 h-12 mb-3 bg-slate-900/50 rounded-lg p-2">
+            {recordingAmplitude.length > 0 ? (
+              recordingAmplitude.map((amplitude, index) => (
+                <div
+                  key={index}
+                  className="w-1 bg-red-400 rounded-full transition-all duration-100"
+                  style={{ height: `${Math.max(amplitude, 4)}px` }}
+                />
+              ))
+            ) : (
+              // Placeholder bars while starting
+              Array.from({ length: 20 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="w-1 bg-slate-600 rounded-full"
+                  style={{ height: '8px' }}
+                />
+              ))
+            )}
+          </div>
+
+          <p className="text-slate-400 text-center text-xs">
+            Tap the send button to send • Tap the delete button to cancel
+          </p>
         </div>
       )}
 
@@ -216,22 +326,36 @@ function MessageInput() {
         </button>
 
         {/* Voice Message Button */}
-        <button
-          type="button"
-          onMouseDown={startRecording}
-          onMouseUp={stopRecording}
-          onMouseLeave={stopRecording}
-          onTouchStart={startRecording}
-          onTouchEnd={stopRecording}
-          className={`rounded-lg p-2 sm:px-4 sm:py-2 transition-colors touch-none ${
-            isRecording
-              ? "bg-red-500 text-white"
-              : "bg-slate-800/50 text-slate-400 hover:text-slate-200"
-          }`}
-          disabled={text.trim() || imagePreview}
-        >
-          {isRecording ? <Square className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-        </button>
+        {!isRecording ? (
+          <button
+            type="button"
+            onClick={startRecording}
+            className="bg-slate-800/50 text-slate-400 hover:text-slate-200 rounded-lg p-2 sm:px-4 sm:py-2 transition-all hover:scale-105 active:scale-95"
+            disabled={text.trim() || imagePreview}
+            title="Hold to record voice message"
+          >
+            <Mic className="w-5 h-5" />
+          </button>
+        ) : (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={cancelRecording}
+              className="bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg p-2 transition-colors"
+              title="Cancel recording"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+            <button
+              type="button"
+              onClick={stopRecording}
+              className="bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg p-2 transition-all hover:scale-105 animate-pulse"
+              title="Send voice message"
+            >
+              <SendIcon className="w-5 h-5" />
+            </button>
+          </div>
+        )}
 
         <button
           type="submit"

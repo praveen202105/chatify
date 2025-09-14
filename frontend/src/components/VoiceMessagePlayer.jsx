@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { Play, Pause, Volume2 } from "lucide-react";
+import { Play, Pause, Mic } from "lucide-react";
 
 const VoiceMessagePlayer = ({ voiceUrl, duration, isMyMessage }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(duration || 0);
+  const [isLoaded, setIsLoaded] = useState(false);
   const audioRef = useRef(null);
 
   useEffect(() => {
@@ -12,17 +13,26 @@ const VoiceMessagePlayer = ({ voiceUrl, duration, isMyMessage }) => {
     if (!audio) return;
 
     const updateTime = () => setCurrentTime(audio.currentTime);
-    const updateDuration = () => setAudioDuration(audio.duration);
-    const handleEnded = () => setIsPlaying(false);
+    const updateDuration = () => {
+      setAudioDuration(audio.duration);
+      setIsLoaded(true);
+    };
+    const handleEnded = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+    };
+    const handleLoadStart = () => setIsLoaded(false);
 
     audio.addEventListener("timeupdate", updateTime);
     audio.addEventListener("loadedmetadata", updateDuration);
     audio.addEventListener("ended", handleEnded);
+    audio.addEventListener("loadstart", handleLoadStart);
 
     return () => {
       audio.removeEventListener("timeupdate", updateTime);
       audio.removeEventListener("loadedmetadata", updateDuration);
       audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener("loadstart", handleLoadStart);
     };
   }, []);
 
@@ -60,63 +70,67 @@ const VoiceMessagePlayer = ({ voiceUrl, duration, isMyMessage }) => {
 
   const progress = audioDuration > 0 ? (currentTime / audioDuration) * 100 : 0;
 
+  // Generate waveform visualization (simplified)
+  const generateWaveform = () => {
+    const bars = [];
+    const barCount = 40;
+    for (let i = 0; i < barCount; i++) {
+      const height = Math.random() * 16 + 4; // Random height between 4-20px
+      const isPlayed = progress > (i / barCount) * 100;
+      bars.push(
+        <div
+          key={i}
+          className={`w-0.5 rounded-full transition-all duration-75 ${
+            isPlayed
+              ? isMyMessage ? 'bg-white' : 'bg-cyan-400'
+              : isMyMessage ? 'bg-cyan-300/50' : 'bg-slate-500/50'
+          }`}
+          style={{ height: `${height}px` }}
+        />
+      );
+    }
+    return bars;
+  };
+
   return (
-    <div className={`flex items-center gap-3 p-3 rounded-lg ${
-      isMyMessage ? 'bg-cyan-600/20' : 'bg-slate-700/50'
-    } max-w-xs`}>
+    <div className={`flex items-center gap-3 py-2 px-3 rounded-lg min-w-0 max-w-sm`}>
       <audio ref={audioRef} src={voiceUrl} preload="metadata" />
 
       {/* Play/Pause Button */}
       <button
         onClick={togglePlayPause}
-        className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
+        disabled={!isLoaded}
+        className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 ${
           isMyMessage
-            ? 'bg-cyan-500 hover:bg-cyan-600 text-white'
-            : 'bg-slate-600 hover:bg-slate-500 text-slate-200'
-        }`}
+            ? 'bg-white/20 hover:bg-white/30 text-white'
+            : 'bg-cyan-500 hover:bg-cyan-600 text-white'
+        } ${!isLoaded ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
       >
-        {isPlaying ? (
-          <Pause className="w-5 h-5" />
+        {!isLoaded ? (
+          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+        ) : isPlaying ? (
+          <Pause className="w-4 h-4" />
         ) : (
-          <Play className="w-5 h-5 ml-0.5" />
+          <Play className="w-4 h-4 ml-0.5" />
         )}
       </button>
 
       <div className="flex-1 min-w-0">
-        {/* Voice Icon */}
-        <div className="flex items-center gap-2 mb-1">
-          <Volume2 className="w-4 h-4 text-slate-400" />
-          <span className="text-xs text-slate-400">Voice Message</span>
-        </div>
-
-        {/* Progress Bar */}
+        {/* Waveform Visualization */}
         <div
           onClick={handleSeek}
-          className="h-2 bg-slate-600/50 rounded-full cursor-pointer relative"
+          className="flex items-center gap-0.5 h-8 cursor-pointer group"
         >
-          <div
-            className={`h-full rounded-full transition-all ${
-              isMyMessage ? 'bg-cyan-400' : 'bg-slate-400'
-            }`}
-            style={{ width: `${progress}%` }}
-          />
-          <div
-            className={`absolute top-1/2 transform -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white transition-all ${
-              isMyMessage ? 'bg-cyan-400' : 'bg-slate-400'
-            }`}
-            style={{ left: `calc(${progress}% - 6px)` }}
-          />
+          {generateWaveform()}
         </div>
+      </div>
 
-        {/* Time Display */}
-        <div className="flex justify-between items-center mt-1">
-          <span className="text-xs text-slate-400">
-            {formatTime(currentTime)}
-          </span>
-          <span className="text-xs text-slate-400">
-            {formatTime(audioDuration)}
-          </span>
-        </div>
+      {/* Duration */}
+      <div className="flex items-center gap-1">
+        <Mic className={`w-3 h-3 ${isMyMessage ? 'text-white/70' : 'text-slate-400'}`} />
+        <span className={`text-xs font-medium ${isMyMessage ? 'text-white/80' : 'text-slate-400'}`}>
+          {formatTime(isPlaying ? audioDuration - currentTime : audioDuration)}
+        </span>
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import express from "express";
 import { ENV } from "./env.js";
 import { socketAuthMiddleware } from "../middleware/socket.auth.middleware.js";
 import User from "../models/User.js";
+import Message from "../models/Message.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -77,6 +78,112 @@ io.on("connection", async (socket) => {
         isTyping: false
       });
       console.log(`Emitted stopTyping event to socket ${receiverSocketId}`);
+    }
+  });
+
+  // Handle message delivery confirmation
+  socket.on("messageDelivered", async (data) => {
+    try {
+      const { messageId } = data;
+      console.log(`Message ${messageId} delivered to ${socket.user.fullName}`);
+
+      // Update message delivery status
+      const updatedMessage = await Message.findByIdAndUpdate(
+        messageId,
+        { deliveredAt: new Date() },
+        { new: true }
+      );
+
+      if (updatedMessage) {
+        // Notify sender about delivery
+        const senderSocketId = getReceiverSocketId(updatedMessage.senderId);
+        if (senderSocketId) {
+          io.to(senderSocketId).emit("messageStatusUpdate", {
+            messageId: messageId,
+            deliveredAt: updatedMessage.deliveredAt
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error updating message delivery status:", error);
+    }
+  });
+
+  // Handle message read confirmation
+  socket.on("messageRead", async (data) => {
+    try {
+      const { messageId } = data;
+      console.log(`Message ${messageId} read by ${socket.user.fullName}`);
+
+      // Update message read status
+      const updatedMessage = await Message.findByIdAndUpdate(
+        messageId,
+        {
+          readAt: new Date(),
+          deliveredAt: new Date() // Ensure delivered is set when read
+        },
+        { new: true }
+      );
+
+      if (updatedMessage) {
+        // Notify sender about read status
+        const senderSocketId = getReceiverSocketId(updatedMessage.senderId);
+        if (senderSocketId) {
+          io.to(senderSocketId).emit("messageStatusUpdate", {
+            messageId: messageId,
+            readAt: updatedMessage.readAt,
+            deliveredAt: updatedMessage.deliveredAt
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error updating message read status:", error);
+    }
+  });
+
+  // Handle bulk message read (when user opens chat)
+  socket.on("markMessagesRead", async (data) => {
+    try {
+      const { senderId } = data;
+      console.log(`${socket.user.fullName} opened chat with ${senderId}`);
+
+      // Mark all unread messages from this sender as read
+      const result = await Message.updateMany(
+        {
+          senderId: senderId,
+          receiverId: userId,
+          readAt: { $exists: false }
+        },
+        {
+          readAt: new Date(),
+          deliveredAt: new Date()
+        }
+      );
+
+      if (result.modifiedCount > 0) {
+        console.log(`Marked ${result.modifiedCount} messages as read`);
+
+        // Get updated messages to send status updates
+        const updatedMessages = await Message.find({
+          senderId: senderId,
+          receiverId: userId,
+          readAt: { $exists: true }
+        }).select('_id readAt deliveredAt');
+
+        // Notify sender about read status for all messages
+        const senderSocketId = getReceiverSocketId(senderId);
+        if (senderSocketId) {
+          updatedMessages.forEach(msg => {
+            io.to(senderSocketId).emit("messageStatusUpdate", {
+              messageId: msg._id,
+              readAt: msg.readAt,
+              deliveredAt: msg.deliveredAt
+            });
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error marking messages as read:", error);
     }
   });
 

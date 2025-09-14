@@ -57,6 +57,12 @@ const messageSchema = new mongoose.Schema(
     },
     deletedAt: {
       type: Date,
+    },
+    deliveredAt: {
+      type: Date,
+    },
+    readAt: {
+      type: Date,
     }
   },
   { timestamps: true }
