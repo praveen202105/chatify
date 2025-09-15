@@ -47,12 +47,12 @@ function App() {
       </Routes>
 
       {/* Call Components - Only render when authenticated */}
-      {/* {authUser && ( */}
-      <>
-        <IncomingCallModal />
-        <CallInterface />
-      </>
-      {/* )} */}
+      {authUser && (
+        <>
+          <IncomingCallModal />
+          <CallInterface />
+        </>
+      )}
 
       <Toaster />
     </div>

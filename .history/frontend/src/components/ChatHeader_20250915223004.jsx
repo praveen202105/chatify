@@ -73,26 +73,26 @@ function ChatHeader() {
       </div>
 
       {/* Call buttons - WhatsApp style */}
-      {/* {isOnline && !isInCall && ( */}
-      <div className="flex items-center gap-1 mr-2">
-        <button
-          onClick={handleVoiceCall}
-          className="p-2.5 text-slate-200 hover:text-white hover:bg-green-600/30 rounded-full transition-all duration-200 hover:scale-105 active:scale-95 border border-transparent hover:border-green-600/30"
-          aria-label="Voice call"
-          title="Voice call"
-        >
-          <Phone className="w-5 h-5 fill-current" />
-        </button>
-        <button
-          onClick={handleVideoCall}
-          className="p-2.5 text-slate-200 hover:text-white hover:bg-blue-600/30 rounded-full transition-all duration-200 hover:scale-105 active:scale-95 border border-transparent hover:border-blue-600/30"
-          aria-label="Video call"
-          title="Video call"
-        >
-          <Video className="w-5 h-5 fill-current" />
-        </button>
-      </div>
-      {/* // )} */}
+      {isOnline && !isInCall && (
+        <div className="flex items-center gap-1 mr-2">
+          <button
+            onClick={handleVoiceCall}
+            className="p-2.5 text-slate-200 hover:text-white hover:bg-green-600/30 rounded-full transition-all duration-200 hover:scale-105 active:scale-95 border border-transparent hover:border-green-600/30"
+            aria-label="Voice call"
+            title="Voice call"
+          >
+            <Phone className="w-5 h-5 fill-current" />
+          </button>
+          <button
+            onClick={handleVideoCall}
+            className="p-2.5 text-slate-200 hover:text-white hover:bg-blue-600/30 rounded-full transition-all duration-200 hover:scale-105 active:scale-95 border border-transparent hover:border-blue-600/30"
+            aria-label="Video call"
+            title="Video call"
+          >
+            <Video className="w-5 h-5 fill-current" />
+          </button>
+        </div>
+      )}
 
       {/* Desktop close button */}
       <button

@@ -13,6 +13,12 @@ export default {
           to: { "--border-angle": "360deg" },
         },
       },
+      animationDelay: {
+        '75': '75ms',
+        '150': '150ms',
+        '225': '225ms',
+        '300': '300ms',
+      },
     },
   },
   plugins: [daisyui],
