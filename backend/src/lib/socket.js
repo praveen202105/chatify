@@ -187,6 +187,115 @@ io.on("connection", async (socket) => {
     }
   });
 
+  // WebRTC Signaling Events
+
+  // Handle call initiation
+  socket.on("initiateCall", (data) => {
+    const { receiverId, callType, offer } = data; // callType: 'voice' or 'video'
+    const receiverSocketId = getReceiverSocketId(receiverId);
+
+    console.log(`${socket.user.fullName} initiating ${callType} call to user ${receiverId}`);
+
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("incomingCall", {
+        callerId: userId,
+        callerName: socket.user.fullName,
+        callerAvatar: socket.user.profilePic,
+        callType: callType,
+        offer: offer,
+        callId: `${userId}-${receiverId}-${Date.now()}`
+      });
+
+      // Notify caller that call is ringing
+      socket.emit("callRinging", {
+        receiverId: receiverId,
+        callType: callType
+      });
+    } else {
+      // User is offline, notify caller
+      socket.emit("callFailed", {
+        reason: "user_offline",
+        message: "User is not available"
+      });
+    }
+  });
+
+  // Handle call answer
+  socket.on("answerCall", (data) => {
+    const { callerId, answer, callId } = data;
+    const callerSocketId = getReceiverSocketId(callerId);
+
+    console.log(`${socket.user.fullName} answered call from ${callerId}`);
+
+    if (callerSocketId) {
+      io.to(callerSocketId).emit("callAnswered", {
+        answer: answer,
+        callId: callId,
+        receiverId: userId
+      });
+    }
+  });
+
+  // Handle call rejection
+  socket.on("rejectCall", (data) => {
+    const { callerId, callId } = data;
+    const callerSocketId = getReceiverSocketId(callerId);
+
+    console.log(`${socket.user.fullName} rejected call from ${callerId}`);
+
+    if (callerSocketId) {
+      io.to(callerSocketId).emit("callRejected", {
+        callId: callId,
+        receiverId: userId,
+        reason: "rejected"
+      });
+    }
+  });
+
+  // Handle call end
+  socket.on("endCall", (data) => {
+    const { participantId, callId } = data;
+    const participantSocketId = getReceiverSocketId(participantId);
+
+    console.log(`${socket.user.fullName} ended call with ${participantId}`);
+
+    if (participantSocketId) {
+      io.to(participantSocketId).emit("callEnded", {
+        callId: callId,
+        endedBy: userId
+      });
+    }
+  });
+
+  // Handle ICE candidates exchange
+  socket.on("iceCandidate", (data) => {
+    const { participantId, candidate, callId } = data;
+    const participantSocketId = getReceiverSocketId(participantId);
+
+    if (participantSocketId) {
+      io.to(participantSocketId).emit("iceCandidate", {
+        candidate: candidate,
+        callId: callId,
+        from: userId
+      });
+    }
+  });
+
+  // Handle call status updates (mute, video toggle, etc.)
+  socket.on("callStatusUpdate", (data) => {
+    const { participantId, status, callId } = data; // status: { audio: boolean, video: boolean }
+    const participantSocketId = getReceiverSocketId(participantId);
+
+    if (participantSocketId) {
+      io.to(participantSocketId).emit("participantStatusUpdate", {
+        participantId: userId,
+        participantName: socket.user.fullName,
+        status: status,
+        callId: callId
+      });
+    }
+  });
+
   // with socket.on we listen for events from clients
   socket.on("disconnect", async () => {
     console.log("A user disconnected", socket.user.fullName);
