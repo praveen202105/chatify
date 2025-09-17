@@ -69,8 +69,8 @@ export const useCallStore = create((set, get) => ({
     });
 
     // Listen for call rejected
-    socket.on("callRejected", (data) => {
-      const { reason } = data;
+    socket.on("callRejected", (_data) => {
+      const { reason } = _data;
 
       set({
         callStatus: 'ended',
@@ -83,7 +83,7 @@ export const useCallStore = create((set, get) => ({
     });
 
     // Listen for call ended
-    socket.on("callEnded", (data) => {
+    socket.on("callEnded", () => {
       set({
         callStatus: 'ended',
         isInCall: false,
@@ -120,9 +120,15 @@ export const useCallStore = create((set, get) => ({
       set({ callStatus: 'ringing' });
     });
 
+    // Caller receives the generated callId
+    socket.on("callCreated", (data) => {
+      const { callId } = data;
+      set({ callId });
+    });
+
     // Listen for call failed
-    socket.on("callFailed", (data) => {
-      const { reason, message } = data;
+    socket.on("callFailed", (_data) => {
+      const { message } = _data;
 
       set({
         callStatus: 'ended',
@@ -416,6 +422,7 @@ export const useCallStore = create((set, get) => ({
       socket.off("iceCandidate");
       socket.off("participantStatusUpdate");
       socket.off("callRinging");
+      socket.off("callCreated");
       socket.off("callFailed");
     }
   }

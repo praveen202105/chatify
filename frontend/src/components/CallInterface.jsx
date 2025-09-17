@@ -21,6 +21,7 @@ function CallInterface() {
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
+  const remoteAudioRef = useRef(null);
   const [callDuration, setCallDuration] = useState(0);
   const [callStartTime, setCallStartTime] = useState(null);
 
@@ -31,10 +32,22 @@ function CallInterface() {
     }
   }, [localStream]);
 
-  // Setup remote video stream
+  // Setup remote media stream (video and audio)
   useEffect(() => {
-    if (remoteStream && remoteVideoRef.current) {
-      remoteVideoRef.current.srcObject = remoteStream;
+    if (remoteStream) {
+      // Attach to remote video element (handles A/V for video calls)
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = remoteStream;
+      }
+
+      // Attach to remote audio element (ensures audio for voice-only calls)
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = remoteStream;
+        // Attempt to play in case the browser blocks autoplay without gesture
+        remoteAudioRef.current.play?.().catch(() => {
+          // no-op: UI interactions (answer button) usually allow autoplay
+        });
+      }
     }
   }, [remoteStream]);
 
@@ -153,6 +166,8 @@ function CallInterface() {
         ) : (
           /* Voice Call UI */
           <div className="absolute inset-0 bg-gradient-to-b from-slate-800 to-slate-900 flex flex-col items-center justify-center">
+            {/* Hidden audio element for voice calls to play remote audio */}
+            <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
             <div className="w-48 h-48 rounded-full overflow-hidden border-8 border-slate-600 mb-8 shadow-2xl">
               <img
                 src={currentCall.participantAvatar || "/avatar.png"}

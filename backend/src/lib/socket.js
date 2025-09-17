@@ -197,20 +197,24 @@ io.on("connection", async (socket) => {
     console.log(`${socket.user.fullName} initiating ${callType} call to user ${receiverId}`);
 
     if (receiverSocketId) {
+      const callId = `${userId}-${receiverId}-${Date.now()}`;
       io.to(receiverSocketId).emit("incomingCall", {
         callerId: userId,
         callerName: socket.user.fullName,
         callerAvatar: socket.user.profilePic,
         callType: callType,
         offer: offer,
-        callId: `${userId}-${receiverId}-${Date.now()}`
+        callId
       });
 
-      // Notify caller that call is ringing
+      // Notify caller that call is ringing and provide callId
       socket.emit("callRinging", {
         receiverId: receiverId,
         callType: callType
       });
+
+      // Provide the generated callId back to the caller for state management
+      socket.emit("callCreated", { callId, receiverId, callType });
     } else {
       // User is offline, notify caller
       socket.emit("callFailed", {
