@@ -387,7 +387,7 @@ export const useCallStore = create((set, get) => ({
   // Play incoming call sound
   playIncomingCallSound: () => {
     try {
-      const ringtone = new Audio("/sounds/notification.mp3");
+      const ringtone = new Audio("/sounds/incoming-call.mp3");
       ringtone.loop = true; // Loop the ringtone
       ringtone.volume = 0.7;
       ringtone.play().catch(e => console.log("Ringtone play failed:", e));

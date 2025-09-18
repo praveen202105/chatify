@@ -15,9 +15,15 @@ export const useAuthStore = create((set, get) => ({
 
   checkAuth: async () => {
     try {
-      const res = await axiosInstance.get("/auth/check");
-      set({ authUser: res.data });
-      get().connectSocket();
+      const token = localStorage.getItem("chat-user-token");
+      if (token) {
+        axiosInstance.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+        const res = await axiosInstance.get("/auth/check");
+        set({ authUser: res.data });
+        get().connectSocket();
+      } else {
+        set({ authUser: null });
+      }
     } catch (error) {
       console.log("Error in authCheck:", error);
       set({ authUser: null });
@@ -47,6 +53,12 @@ export const useAuthStore = create((set, get) => ({
       const res = await axiosInstance.post("/auth/login", data);
       set({ authUser: res.data });
 
+      // Persist the token to localStorage
+      localStorage.setItem("chat-user-token", res.data.token);
+
+      // Set the token for all future requests
+      axiosInstance.defaults.headers.common["Authorization"] = `Bearer ${res.data.token}`;
+
       toast.success("Logged in successfully");
 
       get().connectSocket();
@@ -61,6 +73,10 @@ export const useAuthStore = create((set, get) => ({
     try {
       await axiosInstance.post("/auth/logout");
       set({ authUser: null });
+
+      // Remove the token from localStorage
+      localStorage.removeItem("chat-user-token");
+
       toast.success("Logged out successfully");
       get().disconnectSocket();
     } catch (error) {

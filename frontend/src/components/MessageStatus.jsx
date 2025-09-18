@@ -7,7 +7,7 @@ function MessageStatus({ message, isMyMessage }) {
     if (message.readAt) {
       // Blue double tick - message read
       return (
-        <div className="flex items-center text-blue-950">
+        <div className="flex items-center text-blue-500">
           <Check className="w-3 h-3 -mr-1" />
           <Check className="w-3 h-3" />
         </div>
