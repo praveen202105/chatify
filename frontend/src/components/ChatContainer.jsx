@@ -30,6 +30,7 @@ function ChatContainer() {
   const { authUser } = useAuthStore();
   const messageEndRef = useRef(null);
   const [editText, setEditText] = useState("");
+  const [activeMessageId, setActiveMessageId] = useState(null);
 
   const handleReply = (message) => {
     setReplyToMessage({
@@ -72,16 +73,24 @@ function ChatContainer() {
   return (
     <>
       <ChatHeader />
-      <div className="flex-1 px-6 overflow-y-auto py-8">
+      <div className="flex-1 px-2 sm:px-6 overflow-y-auto py-8">
         {messages.length > 0 && !isMessagesLoading ? (
-          <div className="max-w-3xl mx-auto space-y-6">
+          <div
+            className="max-w-3xl mx-auto space-y-6"
+            onClick={() => setActiveMessageId(null)} // Clear active message on background click
+          >
             {messages.map((msg) => {
               const isMyMessage = msg.senderId === authUser._id;
+              const isActive = activeMessageId === msg._id;
 
               return (
                 <div
                   key={msg._id}
                   className={`chat group ${isMyMessage ? "chat-end" : "chat-start"}`}
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent background click from firing
+                    setActiveMessageId(msg._id);
+                  }}
                 >
                   <div className="flex items-start gap-2 relative">
                     <div
@@ -153,19 +162,23 @@ function ChatContainer() {
                       </div>
                     </div>
 
-                    {/* Quick Reaction Picker (appears on hover) */}
-                    <QuickReactionPicker
-                      message={msg}
-                      isMyMessage={isMyMessage}
-                      onReactionClick={(reactionType) => addMessageReaction(msg._id, reactionType)}
-                    />
+                    {/* Quick Reaction Picker (appears on active) */}
+                    {isActive && (
+                      <QuickReactionPicker
+                        message={msg}
+                        isMyMessage={isMyMessage}
+                        onReactionClick={(reactionType) => addMessageReaction(msg._id, reactionType)}
+                      />
+                    )}
 
-                    {/* Message Actions */}
-                    <MessageActions
-                      message={msg}
-                      onReply={handleReply}
-                      onEdit={handleEdit}
-                    />
+                    {/* Message Actions (appears on active) */}
+                    {isActive && (
+                      <MessageActions
+                        message={msg}
+                        onReply={handleReply}
+                        onEdit={handleEdit}
+                      />
+                    )}
                   </div>
                 </div>
               );
