@@ -28,6 +28,10 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    pushSubscription: {
+      type: Object,
+      default: null,
+    },
   },
   { timestamps: true } // createdAt & updatedAt
 );

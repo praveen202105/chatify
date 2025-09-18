@@ -1,7 +1,8 @@
 import { useState, useRef } from "react";
-import { LogOutIcon, VolumeOffIcon, Volume2Icon } from "lucide-react";
+import { LogOutIcon, VolumeOffIcon, Volume2Icon, BellIcon } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
+import { subscribeToPushNotifications } from "../lib/pushNotifications";
 
 const mouseClickSound = new Audio("/sounds/mouse-click.mp3");
 
@@ -66,6 +67,15 @@ function ProfileHeader() {
 
         {/* BUTTONS */}
         <div className="flex gap-3 sm:gap-4 items-center">
+          {/* NOTIFICATIONS BTN */}
+          <button
+            className="text-slate-400 hover:text-slate-200 transition-colors p-1"
+            onClick={subscribeToPushNotifications}
+            aria-label="Enable notifications"
+          >
+            <BellIcon className="size-5" />
+          </button>
+
           {/* LOGOUT BTN */}
           <button
             className="text-slate-400 hover:text-slate-200 transition-colors p-1"

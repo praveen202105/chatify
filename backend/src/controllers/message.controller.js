@@ -2,6 +2,7 @@ import cloudinary from "../lib/cloudinary.js";
 import { getReceiverSocketId, io } from "../lib/socket.js";
 import Message from "../models/Message.js";
 import User from "../models/User.js";
+import webpush from "../lib/webpush.js";
 
 export const getAllContacts = async (req, res) => {
   try {
@@ -81,6 +82,25 @@ export const sendMessage = async (req, res) => {
     const receiverSocketId = getReceiverSocketId(receiverId);
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("newMessage", newMessage);
+    }
+
+    // Send push notification
+    try {
+      const receiver = await User.findById(receiverId);
+      if (receiver.pushSubscription) {
+        console.log("Sending push notification to:", receiver.fullName);
+        const payload = JSON.stringify({
+          title: `New message from ${req.user.fullName}`,
+          body: newMessage.text || "You received a new message",
+        });
+        webpush.sendNotification(receiver.pushSubscription, payload).catch(error => {
+          console.error("Error sending push notification:", error);
+        });
+      } else {
+        console.log("No push subscription found for:", receiver.fullName);
+      }
+    } catch (error) {
+      console.error("Error sending push notification:", error);
     }
 
     res.status(201).json(newMessage);

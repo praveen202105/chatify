@@ -119,7 +119,22 @@ export const updateProfile = async (req, res) => {
 
     res.status(200).json(updatedUser);
   } catch (error) {
-    console.log("Error in update profile:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const saveSubscription = async (req, res) => {
+  try {
+    const { subscription } = req.body;
+    if (!subscription) return res.status(400).json({ message: "Subscription is required" });
+
+    const userId = req.user._id;
+
+    await User.findByIdAndUpdate(userId, { pushSubscription: subscription });
+
+    res.status(200).json({ message: "Subscription saved successfully" });
+  } catch (error) {
+    console.log("Error in saveSubscription controller:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
