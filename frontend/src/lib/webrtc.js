@@ -22,7 +22,7 @@ class WebRTCService {
     this.isInitialized = true;
   }
 
-  async getUserMedia(constraints = { audio: true, video: true }) {
+  async getUserMedia(constraints = { audio: true, video: false }) {
     try {
       this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
       return this.localStream;
@@ -125,7 +125,7 @@ class WebRTCService {
   }
 
   toggleVideo(enabled) {
-    if (this.localStream) {
+    if (this.localStream && this.localStream.getVideoTracks().length > 0) {
       this.localStream.getVideoTracks().forEach(track => {
         track.enabled = enabled;
       });
@@ -139,7 +139,7 @@ class WebRTCService {
   }
 
   isVideoEnabled() {
-    if (!this.localStream) return false;
+    if (!this.localStream || this.localStream.getVideoTracks().length === 0) return false;
     const videoTrack = this.localStream.getVideoTracks()[0];
     return videoTrack ? videoTrack.enabled : false;
   }
