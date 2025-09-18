@@ -24,6 +24,45 @@ function CallInterface() {
   const remoteAudioRef = useRef(null);
   const [callDuration, setCallDuration] = useState(0);
   const [callStartTime, setCallStartTime] = useState(null);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(false);
+
+  useEffect(() => {
+    const getAudioOutputs = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioOutputs = devices.filter(device => device.kind === 'audiooutput');
+        // You can store these devices in state if you want to allow the user to choose
+      } catch (error) {
+        console.error('Error enumerating audio devices:', error);
+      }
+    };
+
+    getAudioOutputs();
+  }, []);
+
+  const toggleSpeaker = async () => {
+    if (!remoteAudioRef.current) return;
+
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioOutputs = devices.filter(device => device.kind === 'audiooutput');
+      
+      // Find the speaker (this is a heuristic, might need adjustment)
+      const speaker = audioOutputs.find(device => device.label.toLowerCase().includes('speaker'));
+
+      if (isSpeakerOn) {
+        // Switch back to default
+        await remoteAudioRef.current.setSinkId('');
+        setIsSpeakerOn(false);
+      } else if (speaker) {
+        // Switch to speaker
+        await remoteAudioRef.current.setSinkId(speaker.deviceId);
+        setIsSpeakerOn(true);
+      }
+    } catch (error) {
+      console.error('Failed to switch audio output:', error);
+    }
+  };
 
   // Setup local video stream
   useEffect(() => {
@@ -146,7 +185,7 @@ function CallInterface() {
 
             {/* Local Video (Picture-in-Picture) */}
             {localStream && (
-              <div className="absolute top-4 right-4 w-32 h-40 bg-slate-800 rounded-lg overflow-hidden border-2 border-slate-600 shadow-lg">
+              <div className="absolute top-4 right-4 w-24 h-32 sm:w-32 sm:h-40 bg-slate-800 rounded-lg overflow-hidden border-2 border-slate-600 shadow-lg">
                 {isVideoEnabled ? (
                   <video
                     ref={localVideoRef}
@@ -168,7 +207,7 @@ function CallInterface() {
           <div className="absolute inset-0 bg-gradient-to-b from-slate-800 to-slate-900 flex flex-col items-center justify-center">
             {/* Hidden audio element for voice calls to play remote audio */}
             <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
-            <div className="w-48 h-48 rounded-full overflow-hidden border-8 border-slate-600 mb-8 shadow-2xl">
+            <div className="w-32 h-32 sm:w-48 sm:h-48 rounded-full overflow-hidden border-8 border-slate-600 mb-8 shadow-2xl">
               <img
                 src={currentCall.participantAvatar || "/avatar.png"}
                 alt={currentCall.participantName}
@@ -218,7 +257,24 @@ function CallInterface() {
 
       {/* Controls */}
       <div className="flex-shrink-0 bg-slate-800/80 backdrop-blur-sm border-t border-slate-700/50 px-6 py-6">
-        <div className="flex items-center justify-center gap-8">
+        <div className="flex items-center justify-center gap-4 sm:gap-8">
+          {/* Speaker Toggle */}
+          <button
+            onClick={toggleSpeaker}
+            className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg ${
+              isSpeakerOn
+                ? 'bg-sky-500 hover:bg-sky-600 text-white'
+                : 'bg-slate-700 hover:bg-slate-600 text-white'
+            }`}
+            aria-label={isSpeakerOn ? "Turn off speaker" : "Turn on speaker"}
+          >
+            {isSpeakerOn ? (
+              <Volume2 className="w-6 h-6" />
+            ) : (
+              <VolumeX className="w-6 h-6" />
+            )}
+          </button>
+
           {/* Audio Toggle */}
           <button
             onClick={toggleAudio}
