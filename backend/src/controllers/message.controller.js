@@ -91,7 +91,9 @@ export const sendMessage = async (req, res) => {
         console.log("Sending push notification to:", receiver.fullName);
         const payload = JSON.stringify({
           title: `New message from ${req.user.fullName}`,
-          body: newMessage.text || "You received a new message",
+          body: newMessage.text || (newMessage.image ? "Sent an image" : "Sent a voice message"),
+          icon: req.user.profilePic || "/avatar.png",
+          image: newMessage.image,
         });
         webpush.sendNotification(receiver.pushSubscription, payload).catch(error => {
           console.error("Error sending push notification:", error);
